@@ -20,6 +20,7 @@ test_dirs="
   ae_assert_tests
   ae_nullptr_deref_tests
   ae_recursion_tests
+  ae_entry_tests
   ae_wto_assert
   blk_tests
   blk_extapi_tests
@@ -137,6 +138,13 @@ for td in $test_dirs; do
     elif test $td == "ae_recursion_tests"
     then
         $compiler $target_arg -Wno-everything -S -c -Xclang -DINCLUDEMAIN -Wno-implicit-function-declaration -fno-discard-value-names -g -emit-llvm -I"$root" "$c_f" -o "$bc_f"
+    elif test $td == "ae_entry_tests"
+    then
+        $compiler $target_arg -Wno-everything -S -emit-llvm -fno-discard-value-names -g -I"$root" "$c_f" -o "$bc_f"
+        if [ "$filename" = "static.c" ]; then
+            $compiler -Wno-everything -S -emit-llvm -fno-discard-value-names "$c_f" -o "$bc_td/static_no_debug.c.bc"
+            opt -S -p=mem2reg "$bc_td/static_no_debug.c.bc" -o "$bc_td/static_no_debug.c.bc"
+        fi
     elif test $td == "ae_wto_assert"
     then
         $compiler $target_arg -Wno-everything -S -c -Xclang -DINCLUDEMAIN -Wno-implicit-function-declaration -fno-discard-value-names -g -emit-llvm -I"$root" "$c_f" -o "$bc_f"
@@ -147,6 +155,19 @@ for td in $test_dirs; do
     opt -S -p=mem2reg "$bc_f" -o "$bc_f"
   done
 done
+
+########
+# Entry diagnostics must agree for separate modules and llvm-link output.
+########
+mkdir -p "$bc_path/ae_entry_tests/modules"
+(
+  cd "$root/src/ae_entry_tests/modules" || exit 1
+  for source in a.c m.c; do
+    clang -g -S -emit-llvm -fno-discard-value-names "$source" -o "$bc_path/ae_entry_tests/modules/$source.bc" || exit 1
+    opt -S -p=mem2reg "$bc_path/ae_entry_tests/modules/$source.bc" -o "$bc_path/ae_entry_tests/modules/$source.bc" || exit 1
+  done
+  llvm-link -S "$bc_path/ae_entry_tests/modules/a.c.bc" "$bc_path/ae_entry_tests/modules/m.c.bc" -o "$bc_path/ae_entry_tests/modules/linked.bc"
+) || exit 1
 
 ########
 # blk_extapi_tests run wpa with their own extapi, compiled like SVF's extapi.bc.

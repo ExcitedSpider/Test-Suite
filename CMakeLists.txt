@@ -698,6 +698,80 @@ foreach(filename ${ae_no_main_files})
 endforeach()
 
 
+# AE-only named entry tests. Cases live outside the default AE globs because
+# they intentionally start at a function other than main.
+foreach(mode dense semi-sparse sparse)
+  foreach(case plain globals recursive global_values qualified path_qualified exact suffix nonnumeric nested)
+    set(source ${case})
+    if(case MATCHES "^(qualified|path_qualified|exact)$")
+      set(source static)
+    elseif(case MATCHES "^(nonnumeric|nested)$")
+      set(source suffix)
+    endif()
+    set(input "${CMAKE_CURRENT_SOURCE_DIR}/test_cases_bc/ae_entry_tests/${source}.c.bc")
+    if(NOT EXISTS "${input}")
+      continue()
+    endif()
+    set(entry foo)
+    set(expect overflow)
+    if(case STREQUAL "recursive")
+      set(entry b)
+    elseif(case STREQUAL "global_values")
+      set(expect assert)
+    elseif(case STREQUAL "qualified")
+      set(entry b.c:foo)
+    elseif(case STREQUAL "path_qualified")
+      set(entry src/b.c:foo)
+    elseif(case STREQUAL "exact")
+      set(entry foo.1)
+    elseif(case STREQUAL "suffix")
+      set(entry only)
+    elseif(case STREQUAL "nonnumeric")
+      set(entry literal.end)
+    elseif(case STREQUAL "nested")
+      set(entry nested.1)
+    endif()
+    add_test(NAME ae_entry/${case}/${mode}
+      COMMAND ${CMAKE_COMMAND} -DAE=$<TARGET_FILE:ae> -DBC=${input}
+        -DENTRY=${entry} -DMODE=${mode} -DEXPECT=${expect}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/diff_tests/check_ae_entry.cmake
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+  endforeach()
+endforeach()
+foreach(case unknown declaration declaration_qualified conflict ambiguity no_debug no_debug_ambiguity boundary last_colon strip_once nonnumeric_prefix)
+  set(source declaration)
+  if(case MATCHES "^(ambiguity|boundary|last_colon)$")
+    set(source static)
+  elseif(case MATCHES "^no_debug")
+    set(source static_no_debug)
+  elseif(case MATCHES "^(strip_once|nonnumeric_prefix)$")
+    set(source suffix)
+  endif()
+  set(input "${CMAKE_CURRENT_SOURCE_DIR}/test_cases_bc/ae_entry_tests/${source}.c.bc")
+  if(EXISTS "${input}")
+    add_test(NAME ae_entry/error/${case}
+      COMMAND ${CMAKE_COMMAND} -DAE=$<TARGET_FILE:ae> -DBC=${input} -DCASE=${case}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/diff_tests/check_ae_entry.cmake
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+  endif()
+endforeach()
+
+foreach(case modules modules_linked)
+  set(input "${CMAKE_CURRENT_SOURCE_DIR}/test_cases_bc/ae_entry_tests/modules/a.c.bc")
+  set(input2 "${CMAKE_CURRENT_SOURCE_DIR}/test_cases_bc/ae_entry_tests/modules/m.c.bc")
+  if(case STREQUAL "modules_linked")
+    set(input "${CMAKE_CURRENT_SOURCE_DIR}/test_cases_bc/ae_entry_tests/modules/linked.bc")
+    set(input2 "")
+  endif()
+  if(EXISTS "${input}")
+    add_test(NAME ae_entry/error/${case}
+      COMMAND ${CMAKE_COMMAND} -DAE=$<TARGET_FILE:ae> -DBC=${input}
+        -DBC2=${input2} -DCASE=${case}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/diff_tests/check_ae_entry.cmake
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+  endif()
+endforeach()
+
 ## symbolic abstraction tests  (ctest -R symabs -VV)
 set(cmd "ae  -symabs")
 string(REPLACE " " ";" commandtemp ${cmd})
