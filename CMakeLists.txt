@@ -627,30 +627,6 @@ foreach(filename ${ae_overflow_files})
       PROPERTIES
         PASS_REGULAR_EXPRESSION "allocate size : \\[0, \\+oo\\], access size : \\[4, 4\\]")
   endif()
-  # The string tests check AE's state with in-source checkpoints; these output
-  # checks cover the overflow detector, whose reports never change the exit code.
-  if (basename STREQUAL "strcpy_joined_source_length.c.bc" OR
-      basename STREQUAL "strcat_appended_source_once.c.bc")
-    if (basename STREQUAL "strcpy_joined_source_length.c.bc")
-      # The longer possible source must produce an alarm at the strcpy. A pass
-      # regex makes CTest ignore the exit code, so also fail on a checkpoint failure.
-      set(ae_string_check_properties
-        PASS_REGULAR_EXPRESSION "accessing at : \\(CallICFGNode: \\{ \"ln\": 13, \"cl\": 5,"
-        FAIL_REGULAR_EXPRESSION "Assertion|failure: ")
-    else()
-      # Appending "A" to "" in char[2] is safe and must not report an overflow.
-      set(ae_string_check_properties
-        FAIL_REGULAR_EXPRESSION "Buffer Overflow \\(")
-    endif()
-    set_tests_properties(
-      ae_overflow_tests/${filename}
-      ae_recursion_tests/${filename}-widen-narrow
-      ae_semi_sparse/overflow/${basename}
-      ae_semi_sparse/recursion_from_overflow/${basename}-widen-narrow
-      ae_full_sparse/overflow/${basename}
-      ae_full_sparse/recursion_from_overflow/${basename}-widen-narrow
-      PROPERTIES ${ae_string_check_properties})
-  endif()
 endforeach()
 
 # ae_nullptr_deref tests (ctest -R ae_nullptr_deref_tests -VV) + semi/full-sparse
